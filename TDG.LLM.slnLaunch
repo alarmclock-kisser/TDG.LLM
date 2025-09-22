@@ -1,0 +1,27 @@
+[
+  {
+    "Name": "FULL (API + App)",
+    "Projects": [
+      {
+        "Path": "TDG.LLM.Api\\TDG.LLM.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "TDG.LLM.WebApp\\TDG.LLM.WebApp.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  },
+  {
+    "Name": "API (https)",
+    "Projects": [
+      {
+        "Path": "TDG.LLM.Api\\TDG.LLM.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]
