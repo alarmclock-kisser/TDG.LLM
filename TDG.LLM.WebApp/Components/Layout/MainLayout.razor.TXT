@@ -1,0 +1,125 @@
+﻿@using Radzen
+@using Radzen.Blazor
+@using System.Collections.Concurrent
+@inject IJSRuntime JSRuntime
+@inherits LayoutComponentBase
+
+<CascadingValue Value="@LogEntryHandler" Name="AddLogEntry">
+
+    <RadzenLayout>
+        <!-- Kopfbereich (unverändert) -->
+        <HeadContent>
+            <link rel="stylesheet" href="~/site.css" />
+            <link rel="icon" href="~/../TDG.LLM.favicon.ico" type="image/x-icon" />
+        </HeadContent>
+
+        <!-- Header (unverändert) -->
+        <RadzenHeader>
+            <RadzenRow AlignItems="AlignItems.Center">
+                <RadzenColumn><RadzenSidebarToggle Click="@SidebarToggleClick" /></RadzenColumn>
+                <RadzenColumn><div style="font-size: 24px; font-weight: bold;">TDG.LLM WebApp</div></RadzenColumn>
+            </RadzenRow>
+        </RadzenHeader>
+
+        <!-- Sidebar (unverändert) -->
+        <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+            <RadzenPanelMenu>
+                <RadzenPanelMenuItem Text="Home" Path="" Icon="home" Match="NavLinkMatch.All" />
+                <RadzenPanelMenuItem Text="Image" Path="image" Icon="photo" />
+                <RadzenPanelMenuItem Text="Audio" Path="audio" Icon="audiotrack" />
+            </RadzenPanelMenu>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                <RadzenLabel Text="Dark Mode:" Style="margin-right: 10px;" />
+                <RadzenSwitch @bind-Value="@darkModeEnabled" Change="@ToggleDarkMode" Style="margin-right: 10px;" />
+            </RadzenStack>
+        </RadzenSidebar>
+
+        <!-- Hauptinhalt -->
+        <RadzenBody>
+            <RadzenContent Container="main">
+                @Body
+            </RadzenContent>
+        </RadzenBody>
+
+        <!-- Log-Footer -->
+        <RadzenFooter Style="position: sticky; bottom: 0; background-color: #f8f9fa; padding: 10px;">
+            <RadzenStack Orientation="Orientation.Vertical">
+                <RadzenText Text="Log Entries:" TextStyle="TextStyle.Subtitle2" />
+                <div id="logContainer" @ref="logContainer" style="overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
+                    @foreach (var entry in logEntries.Values)
+                    {
+                        <div>@entry</div>
+                    }
+                </div>
+            </RadzenStack>
+            <RadzenButton Text="Clear Log" Click="() => logEntries.Clear()" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" />
+        </RadzenFooter>
+    </RadzenLayout>
+</CascadingValue>
+
+@code {
+    // Zustandsvariablen
+    bool sidebarExpanded = false;
+    bool darkModeEnabled = false;
+    private ConcurrentDictionary<long, string> logEntries = [];
+    private ElementReference logContainer;
+    private int maxLogEntries = 100;
+
+    // WICHTIG: Parameter und Methode umbenannt
+    [CascadingParameter(Name = "AddLogEntry")]
+    public Func<string, bool, Task> LogEntryHandler { get; set; } = null!;
+
+    // Methode zum Hinzufügen von Log-Einträgen
+    public async Task AddLogEntry(string message = "", bool overwriteLastEntry = false)
+    {
+        if (!string.IsNullOrWhiteSpace(message) && !".!?".Contains(message.Trim().Last()))
+            message += ".";
+
+        try
+        {
+            if (overwriteLastEntry && logEntries.Any())
+            {
+                logEntries[logEntries.Keys.Last()] = message;
+            }
+            else
+            {
+                logEntries.TryAdd(DateTime.Now.Ticks, message);
+                if (logEntries.Count > maxLogEntries)
+                    logEntries.TryRemove(logEntries.Keys.First(), out _);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Log error: {ex.Message}");
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // UI-Events
+    void SidebarToggleClick() => sidebarExpanded = !sidebarExpanded;
+
+    async Task ToggleDarkMode()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "document.body.classList.toggle",
+                "dark-mode",
+                darkModeEnabled
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DarkMode error: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await AddLogEntry("First render");
+        if (logEntries.Any()) await JSRuntime.InvokeVoidAsync("scrollToBottom", "logContainer");
+    }
+}

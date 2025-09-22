@@ -1,4 +1,5 @@
 using TDG.LLM.WebApp.Components;
+using TDG.LLM.Client;
 
 namespace TDG.LLM.WebApp
 {
@@ -9,6 +10,8 @@ namespace TDG.LLM.WebApp
 			var builder = WebApplication.CreateBuilder(args);
 
 			// Add services to the container.
+			builder.Services.AddSingleton<ApiClient>();
+
 			builder.Services.AddRazorComponents()
 				.AddInteractiveServerComponents();
 
@@ -18,7 +21,6 @@ namespace TDG.LLM.WebApp
 			if (!app.Environment.IsDevelopment())
 			{
 				app.UseExceptionHandler("/Error");
-				// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 				app.UseHsts();
 			}
 

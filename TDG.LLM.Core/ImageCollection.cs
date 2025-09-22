@@ -59,5 +59,15 @@ namespace TDG.LLM.Core
 				return false;
 			}
 		}
+
+		public void Clear()
+		{
+			foreach (var img in this.Images.Values)
+			{
+				img.Dispose();
+			}
+
+			this.Images.Clear();
+		}
 	}
 }

@@ -59,16 +59,45 @@ namespace TDG.LLM.Api.Controllers
 					});
 				}
 
-				// Save the uploaded file to a temporary location
-				var tempFilePath = Path.GetTempFileName();
-				using (var stream = System.IO.File.Create(tempFilePath))
+				 // Verwende den Original-Dateinamen (bereinigt) anstelle eines generischen Temp-Namens
+				var originalFileName = Path.GetFileName(file.FileName); // entfernt etwaige Pfadangaben
+				var invalidChars = Path.GetInvalidFileNameChars();
+				var safeFileName = string.Join("_", originalFileName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+				if (string.IsNullOrWhiteSpace(safeFileName))
+				{
+					safeFileName = "upload";
+				}
+
+				// Stelle sicher, dass eine Erweiterung erhalten bleibt (falls vorhanden)
+				var extension = Path.GetExtension(safeFileName);
+				if (string.IsNullOrEmpty(extension))
+				{
+					var origExt = Path.GetExtension(originalFileName);
+					if (!string.IsNullOrEmpty(origExt))
+					{
+						safeFileName += origExt;
+					}
+				}
+
+				var tempDir = Path.GetTempPath();
+				var destPath = Path.Combine(tempDir, safeFileName);
+
+				// Kollision vermeiden
+				if (System.IO.File.Exists(destPath))
+				{
+					var baseName = Path.GetFileNameWithoutExtension(safeFileName);
+					var ext = Path.GetExtension(safeFileName);
+					destPath = Path.Combine(tempDir, $"{baseName}_{Guid.NewGuid():N}{ext}");
+				}
+
+				using (var stream = System.IO.File.Create(destPath))
 				{
 					await file.CopyToAsync(stream);
 				}
 
 				var info = await Task.Run(() =>
 				{
-					var imgObj = this.imageCollection.Import(tempFilePath);
+					var imgObj = this.imageCollection.Import(destPath);
 					return new ImageObjInfo(imgObj);
 				});
 
@@ -116,6 +145,78 @@ namespace TDG.LLM.Api.Controllers
 			}
 		}
 
-		[HttpGet("data/{id}")]
+		[HttpDelete("clear")]
+		[ProducesResponseType(200)]
+		[ProducesResponseType(typeof(ProblemDetails), 500)]
+		public async Task<IActionResult> ClearAsync()
+		{
+			try
+			{
+				await Task.Run(this.imageCollection.Clear);
+				return this.Ok();
+			}
+			catch (Exception ex)
+			{
+				return this.StatusCode(500, new ProblemDetails
+				{
+					Title = "Error clearing images",
+					Detail = ex.Message,
+					Status = 500
+				});
+			}
+		}
+
+		[HttpGet("data/{id}/{frame}")]
+		[ProducesResponseType(typeof(ImageData), 200)]
+		[ProducesResponseType(typeof(ProblemDetails), 404)]
+		[ProducesResponseType(typeof(ProblemDetails), 500)]
+		public async Task<ActionResult<ImageData>> GetImageDataAsync(Guid id, int frame = 0)
+		{
+			try
+			{
+				var obj = this.imageCollection.Images.GetValueOrDefault(id);
+				if (obj == null)
+				{
+					return this.NotFound(new ProblemDetails
+					{
+						Title = "Image not found",
+						Detail = $"No image found with ID {id}.",
+						Status = 404
+					});
+				}
+
+				if (frame < 0 || frame >= obj.Frames.Length)
+				{
+					return this.NotFound(new ProblemDetails
+					{
+						Title = "Frame not found",
+						Detail = $"No frame {frame} found for image ID {id}.",
+						Status = 404
+					});
+				}
+
+				var imgData = await Task.Run(() => new ImageData(obj, frame));
+				if (imgData == null)
+				{
+					return this.NotFound(new ProblemDetails
+					{
+						Title = "Image not found",
+						Detail = $"No image found with ID {id}.",
+						Status = 404
+					});
+				}
+
+				return this.Ok(imgData);
+			}
+			catch (Exception ex)
+			{
+				return this.StatusCode(500, new ProblemDetails
+				{
+					Title = "Error retrieving image data",
+					Detail = ex.Message,
+					Status = 500
+				});
+			}
+		}
 	}
 }
