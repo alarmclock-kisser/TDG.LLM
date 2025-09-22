@@ -1,6 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TDG.LLM.Core;
 using TDG.LLM.Shared;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Bmp;
 
 namespace TDG.LLM.Api.Controllers
 {
@@ -213,6 +218,53 @@ namespace TDG.LLM.Api.Controllers
 				return this.StatusCode(500, new ProblemDetails
 				{
 					Title = "Error retrieving image data",
+					Detail = ex.Message,
+					Status = 500
+				});
+			}
+		}
+
+		// New endpoint: raw bytes export in chosen format (png, jpg, bmp)
+		[HttpGet("raw/{id}/{frame}/{format?}")]
+		public async Task<IActionResult> GetRawAsync(Guid id, int frame = 0, string format = "png")
+		{
+			try
+			{
+				var obj = this.imageCollection.Images.GetValueOrDefault(id);
+				if (obj == null)
+				{
+					return this.NotFound();
+				}
+				if (frame < 0 || frame >= obj.Frames.Length)
+				{
+					return this.NotFound();
+				}
+				format = format.ToLowerInvariant();
+				var image = obj.Frames[frame];
+				await using var ms = new MemoryStream();
+				string contentType;
+				string ext;
+				switch (format)
+				{
+					case "jpg":
+					case "jpeg":
+						image.Save(ms, new JpegEncoder());
+						contentType = "image/jpeg"; ext = "jpg"; break;
+					case "bmp":
+						image.Save(ms, new BmpEncoder());
+						contentType = "image/bmp"; ext = "bmp"; break;
+					default:
+						image.Save(ms, new PngEncoder());
+						contentType = "image/png"; ext = "png"; break;
+				}
+				var fileName = $"{obj.Id}_{frame}.{ext}";
+				return this.File(ms.ToArray(), contentType, fileName);
+			}
+			catch (Exception ex)
+			{
+				return this.StatusCode(500, new ProblemDetails
+				{
+					Title = "Error exporting image",
 					Detail = ex.Message,
 					Status = 500
 				});

@@ -1,0 +1,19 @@
+You are an expert at analyzing document images and extracting structured information. Your task is to process a document containing one or more pages (frames) and provide a JSON response.
+
+The document's unique identifier is {guid_placeholder}. This GUID must be included in the JSON output.
+
+Analyze the provided image(s) from the document and identify all input fields for data entry. For each identified field, provide the following information as a JSON object within a list called 'text_fields':
+
+- **frame_id**: The page number of the field (starting from 0).
+- **bounding_box**: An object containing the field's coordinates:
+  - **x**: The x-coordinate (horizontal position).
+  - **y**: The y-coordinate (vertical position).
+  - **width**: The width of the field.
+  - **height**: The height of the field.
+- **description**: A very brief description of what should be entered into the field (e.g., "Vorname", "Datum", "Telefonnummer", "Unterschrift").
+
+The final JSON output must be a single, valid JSON object with the following structure:
+- **document_id**: The provided GUID.
+- **text_fields**: A JSON array of the extracted field objects.
+
+Respond only with the JSON object. Do not include any additional text or explanations.

@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TDG.LLM.Client\TDG.LLM.Client.csproj" />
     <ProjectReference Include="..\TDG.LLM.Core\TDG.LLM.Core.csproj" />
     <ProjectReference Include="..\TDG.LLM.Shared\TDG.LLM.Shared.csproj" />
   </ItemGroup>

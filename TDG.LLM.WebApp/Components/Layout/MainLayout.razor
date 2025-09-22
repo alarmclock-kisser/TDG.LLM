@@ -16,24 +16,11 @@
         <!-- Header -->
         <RadzenHeader>
             <RadzenRow AlignItems="AlignItems.Center">
-                <RadzenColumn><RadzenSidebarToggle Click="@(args => SidebarToggleClick())" /></RadzenColumn>
                 <RadzenColumn><div style="font-size: 24px; font-weight: bold;">TDG.LLM WebApp</div></RadzenColumn>
             </RadzenRow>
         </RadzenHeader>
 
         <!-- Sidebar -->
-        <RadzenSidebar @bind-Expanded="@sidebarExpanded">
-            <RadzenPanelMenu>
-                <RadzenPanelMenuItem Text="Home" Path="" Icon="home" Match="NavLinkMatch.All" />
-                <RadzenPanelMenuItem Text="Image" Path="image" Icon="photo" />
-                <RadzenPanelMenuItem Text="Fractals" Path="fractal" Icon="widgets" />
-                <RadzenPanelMenuItem Text="Audio" Path="audio" Icon="audiotrack" />
-            </RadzenPanelMenu>
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                <RadzenLabel Text="Dark Mode:" Style="margin-right: 10px;" />
-                <RadzenSwitch @bind-Value="@darkModeEnabled" Change="@ToggleDarkMode" Style="margin-right: 10px;" />
-            </RadzenStack>
-        </RadzenSidebar>
 
         <!-- Hauptinhalt -->
         <RadzenBody>
@@ -42,44 +29,32 @@
             </RadzenContent>
         </RadzenBody>
 
-        <!-- Log-Footer -->
-        <RadzenFooter Style="position: sticky; 
-                           bottom: 0; 
-                           background-color: #f8f9fa; 
-                           padding: 10px;
-                           height: 25vh; /* WICHTIG: Viewport-Höhe */
-                           display: flex;
-                           flex-direction: column;
-                           overflow: hidden;">
-    
-            <RadzenStack Orientation="Orientation.Vertical" 
-                        Style="flex-grow: 1; 
-                               overflow: hidden;
-                               height: calc(25vh - 50px); /* Platz für Button */">
-        
-                <RadzenText Text="Log:" TextStyle="TextStyle.Subtitle2" />
-        
-                <div id="logContainer" 
-                     @ref="logContainer" 
-                     style="overflow-y: auto; 
-                            border: 1px solid #ccc; 
-                            padding: 10px;
-                            flex-grow: 1;
-                            max-height: 100%;
-                            word-break: break-word;">
-    
-                    @foreach (var entry in logEntries.OrderBy(kv => kv.Key).TakeLast(maxLogEntries))
-                    {
-                        <div style="white-space: pre-wrap; word-wrap: break-word; padding: 2px 0; border-bottom: 1px solid #eee;"> @entry.Value </div>
-                    }
+        <!-- Collapsible Log Footer -->
+        <RadzenFooter Style="position: sticky; bottom:0; padding:0; background-color:#f8f9fa; z-index:100;">
+            <div style="display:flex; flex-direction:column; width:100%;">
+                <!-- Toggle Bar -->
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#e0e0e0; padding:2px 6px; cursor:pointer; user-select:none;"
+                     @onclick="ToggleLogExpanded">
+                    <div style="font-weight:bold; font-size:12px;">Log (@logEntries.Count)</div>
+                    <RadzenButton Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Text="@(logExpanded ? "-" : "+")" Click="ToggleLogExpanded" Style="min-width:30px;" />
                 </div>
-            </RadzenStack>
-    
-            <RadzenButton Text="Clear Log" 
-                         Click="() => logEntries.Clear()" 
-                         ButtonStyle="ButtonStyle.Light" 
-                         Size="ButtonSize.Small"
-                         Style="margin-top: 8px;" />
+
+                @if (logExpanded)
+                {
+                    <div style="display:flex; flex-direction:column; height:25vh; padding:6px 8px; gap:4px;">
+                        <RadzenStack Orientation="Orientation.Vertical" Style="flex-grow:1; overflow:hidden;">
+                            <RadzenText Text="Log:" TextStyle="TextStyle.Subtitle2" />
+                            <div id="logContainer" @ref="logContainer" style="overflow-y:auto; border:1px solid #ccc; padding:6px; flex-grow:1; max-height:100%; word-break:break-word; background:#fff;">
+                                @foreach (var entry in logEntries.OrderBy(kv => kv.Key).TakeLast(maxLogEntries))
+                                {
+                                    <div style="white-space:pre-wrap; word-wrap:break-word; padding:2px 0; border-bottom:1px solid #eee; font-size:12px;">@entry.Value</div>
+                                }
+                            </div>
+                        </RadzenStack>
+                        <RadzenButton Text="Clear" Click="() => logEntries.Clear()" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Style="align-self:flex-end;" />
+                    </div>
+                }
+            </div>
         </RadzenFooter>
     </RadzenLayout>
 </CascadingValue>
@@ -93,6 +68,7 @@
 
     bool sidebarExpanded = false;
     bool darkModeEnabled = false;
+    private bool logExpanded = false; // default collapsed
     private ConcurrentDictionary<long, string> logEntries = [];
     private ElementReference logContainer;
     private int maxLogEntries = 100;
@@ -193,13 +169,15 @@
         StateHasChanged();
     }
 
+    private void ToggleLogExpanded()
+    {
+        logExpanded = !logExpanded;
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && logMinimal)
-        {
-            await AddLogEntry("Initial rendering started...").ConfigureAwait(false);
-        }
-        if (logEntries.Any())
+        if (logExpanded && logEntries.Any())
         {
             await JSRuntime.InvokeVoidAsync("scrollToBottom", "logContainer");
         }
@@ -207,8 +185,6 @@
         if (firstRender && logMinimal)
         {
             await AddLogEntry("Initial rendering completed!", true).ConfigureAwait(false);
-            await AddLogEntry("Dark mode is " + (darkModeEnabled ? "enabled" : "disabled")).ConfigureAwait(false);
-            await AddLogEntry("Sidebar is " + (sidebarExpanded ? "expanded" : "collapsed")).ConfigureAwait(false);
         }
     }
 }
